@@ -801,7 +801,6 @@ async def send_messages_to_accounts():
         current_datetime = datetime.now()
         current_day = current_datetime.weekday() # 0 = Monday, 6 = Sunday
         current_hour, current_minute = current_datetime.hour, current_datetime.minute
-        print(current_day in target_days and current_hour == target_time_1_hour and current_minute == target_minute)
 
         if (current_day in target_days and current_hour == target_time_1_hour and current_minute == target_minute) or (current_day in target_days and current_hour == target_hour and current_minute == target_time_5_minute):
             day_names = [day_name for day_name, day_value in day_mapping.items() if day_value in target_days]
