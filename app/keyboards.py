@@ -11,7 +11,7 @@ main_admin = ReplyKeyboardMarkup(resize_keyboard=True)
 main_admin.add('О нас', 'Admin-panel')
 
 admin_panel = ReplyKeyboardMarkup(resize_keyboard=True)
-admin_panel.add('Студенты', 'Курсы', 'Все расписания', 'Потоки', 'Рассылка для всех', 'Добавить админа')
+admin_panel.add('Студенты', 'Курсы', 'Все расписания', 'Потоки', 'Рассылка для всех', 'Добавить админа', 'Удалить админа')
 
 student_list = ReplyKeyboardMarkup(resize_keyboard=True)
 student_list.add('Список Студентов','Удалить студента', 'Назад_')
@@ -20,7 +20,7 @@ course_func = ReplyKeyboardMarkup(resize_keyboard=True)
 course_func.add('Все курсы', 'Добавить курс','Изменить курс', 'Удалить курс', 'Назад_')
 
 stream_func = ReplyKeyboardMarkup(resize_keyboard=True)
-stream_func.add('Все потоки', 'Добавить поток', 'Удалить поток', 'Назад_')
+stream_func.add('Все потоки', 'Добавить поток','Изменить поток' ,  'Удалить поток', 'Назад_')
 
 
 anyn_list = InlineKeyboardMarkup(row_width=2)

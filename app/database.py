@@ -11,7 +11,8 @@ async def db_start():
                 "tg_id INTEGER, "
                 "cart_id TEXT, "
                 "course_id INTEGER, "
-                "stream INTEGER)"
+                "stream INTEGER, "
+                "is_admin INTEGER DEFAULT 0)"  # Set the default value to 0
                 )
 
     cur.execute("CREATE TABLE IF NOT EXISTS course ("
@@ -29,6 +30,7 @@ async def db_start():
                 "minutes INTEGER "
                 ")"
                 )
+
     db.commit()
 
 
@@ -51,6 +53,7 @@ async def change_account_stream(tg_id, new_course):
 async def get_account_sheadule(tg_id):
     # Get the course for a specific account
     return cur.execute("SELECT stream FROM accounts WHERE tg_id=?", (tg_id,)).fetchone()[0]
+
 
 
 

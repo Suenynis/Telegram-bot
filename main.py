@@ -38,6 +38,12 @@ class MyState(StatesGroup):
     waiting_for_confirmation = State()
     waiting_for_admin_id = State()
     update_for_course_id = State()
+    waiting_for_course_name_update = State()
+    waiting_for_course_details_update = State()
+    waiting_for_stream_name_update = State()
+    waiting_for_stream_details_update = State()
+    waiting_for_admin_id_delete = State()
+
 
 
 day_mapping = {
@@ -68,7 +74,9 @@ def get_streams_for_course(course_id):
 def is_admin(user_id):
     #os.getenv('ADMIN_ID') gives in format admin1id, admin2id, admin3id
     admins = os.getenv('ADMIN_ID').split(', ')
-    if str(user_id) in admins:
+    cur.execute("SELECT is_admin FROM accounts WHERE tg_id=?", (user_id,))
+    is_admin = cur.fetchone()[0]
+    if str(user_id) in admins or is_admin == 1:
         return True
     else:
         return False
@@ -275,75 +283,68 @@ async def process_course_input(message: types.Message, state: FSMContext):
 
 @dp.message_handler(text=['Изменить курс'])
 async def update_course(message: types.Message):
-    # Check if the user is an admin (you can use your own admin check logic)
+    # Check if the user is an admin (use your own admin check logic)
     if is_admin(message.from_user.id):
-        await message.answer("Введите ID курса, который вы хотите изменить.\nЕсли хотите отменить оперцию, введите 'stop'.")
-        # Set the state to wait for course ID
-        await MyState.update_for_course_id.set()
+        await message.answer("Введите название курса, который вы хотите обновить.\nЕсли хотите отменить операцию, введите 'stop'.")
+        # Set the state to wait for the course name to update
+        await MyState.waiting_for_course_name_update.set()
     else:
         await message.answer('У вас нет доступа к этой команде.')
 
 # Create a handler for receiving course ID to update
-@dp.message_handler(lambda message: message.text, state=MyState.update_for_course_id)
-async def process_course_id(message: types.Message, state: FSMContext):
+@dp.message_handler(lambda message: message.text, state=MyState.waiting_for_course_name_update)
+async def process_course_name_update(message: types.Message, state: FSMContext):
     try:
+        # Parse the user's input for the course name
         if message.text == 'stop':
-            await message.answer("Вы отменили создание курса :(")
+            await message.answer("Вы отменили обновление курса :(")
             await state.finish()
             return
-        course_id = int(message.text)
 
-        # Check if the course with the specified ID exists
-        cur.execute("SELECT id FROM course WHERE id=?", (course_id,))
-        existing_course = cur.fetchone()
+        course_name = message.text
 
-        if not existing_course:
-            await message.answer("Курс с указанным ID не найден.")
-        else:
-            # Here we take information course from database
-            cur.execute("SELECT name, description FROM course WHERE id=?", (course_id,))
-            course = cur.fetchone()
-            name, description = course
-            await message.answer(f"Данные для изменение:\n {name}, {description}\n\nЕсли хотите отменить оперцию, введите 'stop'.")
-            await MyState.update_for_course_id.set()
-            await state.update_data(course_id=course_id)
-    except ValueError:
-        await message.answer("Введите корректный ID курса.")
+        # Check if the course exists in the database
+        cur.execute("SELECT * FROM course WHERE name=?", (course_name,))
+        course = cur.fetchone()
+
+        if course is None:
+            await message.answer(f"Курс '{course_name}' не найден. Пожалуйста, введите корректное название курса.")
+            return
+
+        # Set the state to wait for updated course details
+        await state.update_data(course_id=course[0])
+        await message.answer(f"Введите новые данные для курса '{course_name}' в формате:\nНазвание, Описание\nЕсли хотите отменить операцию, введите 'stop'.")
+        await MyState.waiting_for_course_details_update.set()
     except Exception as e:
         await message.answer(f'Произошла ошибка: {str(e)}')
 
-    # Reset the state to none
-    await state.finish()
-
-
-@dp.message_handler(lambda message: message.text and message.text != 'stop', state=MyState.update_for_course_id)
-async def process_course_input(message: types.Message, state: FSMContext):
+@dp.message_handler(lambda message: message.text, state=MyState.waiting_for_course_details_update)
+async def process_course_details_update(message: types.Message, state: FSMContext):
     try:
-        # Parse the user's input for course details
+        # Parse the user's input for updated course details
         if message.text == 'stop':
-            await message.answer("Вы отменили создание курса :(")
+            await message.answer("Вы отменили обновление курса :(")
             await state.finish()
             return
-
+        print('here')
         course_data = message.text.split(', ')
         if len(course_data) != 2:
             await message.answer("Пожалуйста, введите данные в правильном формате: Название, Описание")
             return
 
         name, description = course_data
+        course_id = (await state.get_data())['course_id']
 
-        # Insert the course data into the database
-        cur.execute("UPDATE course SET name=?, description=? WHERE id=?",
-                    (name, description, state['course_id']))
+        # Update the course data in the database
+        cur.execute("UPDATE course SET name=?, description=? WHERE id=?", (name, description, course_id))
         db.db.commit()
 
-        await message.answer(f"Курс '{name}' успешно изменен в базе данных.")
+        await message.answer(f"Курс '{name}' успешно обновлен в базе данных.")
     except Exception as e:
         await message.answer(f'Произошла ошибка: {str(e)}')
 
     # Reset the state to none
     await state.finish()
-
 
 @dp.message_handler(text=['Удалить курс'])
 async def delete_course(message: types.Message):
@@ -523,6 +524,80 @@ async def process_stream_input(message: types.Message, state: FSMContext):
     # Reset the state to none
     await state.finish()
 
+
+@dp.message_handler(text=['Изменить поток'])
+async def update_stream(message: types.Message):
+    # Check if the user is an admin (use your own admin check logic)
+    if is_admin(message.from_user.id):
+        await message.answer("Введите id потока, который вы хотите обновить.\nЕсли хотите отменить операцию, введите 'stop'.")
+        # Set the state to wait for the stream name to update
+        await MyState.waiting_for_stream_name_update.set()
+    else:
+        await message.answer('У вас нет доступа к этой команде.')
+
+# Handler for processing the stream name to update
+@dp.message_handler(lambda message: message.text, state=MyState.waiting_for_stream_name_update)
+async def process_stream_name_update(message: types.Message, state: FSMContext):
+    try:
+        # Parse the user's input for the stream name
+        if message.text == 'stop':
+            await message.answer("Вы отменили обновление потока :(")
+            await state.finish()
+            return
+
+        stream_id = message.text
+
+        # Check if the stream exists in the database
+        cur.execute("SELECT * FROM stream WHERE id=?", (stream_id,))
+        stream = cur.fetchone()
+
+        if stream is None:
+            await message.answer(f"Поток '{stream_id}' не найден. Пожалуйста, введите корректное название потока.")
+            return
+
+        # Set the state to wait for updated stream details
+        await state.update_data(stream_id=stream[0])
+        await message.answer(f"Введите новые данные для потока '{stream_id}' в формате:\nНомер потока, Дни, Часы, Минуты\nВаши данные \n {stream[1]}, ({stream[3]}), {stream[4]}, {stream[5]} \n\nЕсли хотите отменить операцию, введите 'stop'.")
+        await MyState.waiting_for_stream_details_update.set()
+    except Exception as e:
+        await message.answer(f'Произошла ошибка: {str(e)}')
+
+# Handler for processing updated stream details
+@dp.message_handler(lambda message: message.text, state=MyState.waiting_for_stream_details_update)
+async def process_stream_details_update(message: types.Message, state: FSMContext):
+    try:
+        # Parse the user's input for updated stream details
+        if message.text == 'stop':
+            await message.answer("Вы отменили обновление потока :(")
+            await state.finish()
+            return
+
+        stream_data = message.text.split(', ')
+        print(len(stream_data))
+        if len(stream_data) != 4:
+            await message.answer("Пожалуйста, введите данные в правильном формате: Номер потока, Дни, Часы, Минуты")
+            return
+
+        name, days_input, hours, minutes = stream_data
+        stream_id = (await state.get_data())['stream_id']
+
+        # Extract days within parentheses and remove spaces
+        days = [day.strip() for day in days_input.strip('()').split()]
+        if not all([day in day_mapping for day in days]):
+            await message.answer("Пожалуйста, введите корректные дни в правильном формате: ПН ВТ СР")
+            return
+
+        # Update the stream data in the database
+        cur.execute("UPDATE stream SET name=?, days=?, hours=?, minutes=? WHERE id=?", (name, ', '.join(days), hours, minutes, stream_id))
+        db.db.commit()
+
+        await message.answer(f"Поток '{name}' успешно обновлен в базе данных.")
+    except Exception as e:
+        await message.answer(f'Произошла ошибка: {str(e)}')
+
+    # Reset the state to none
+    await state.finish()
+
 @dp.message_handler(text=['Удалить поток'])
 async def delete_stream(message: types.Message):
 # Check if the user is an admin (you can use your own admin check logic)
@@ -627,34 +702,6 @@ async def add_admin(message: types.Message):
         await message.answer('У вас нет доступа к этой команде.')
 
 # Create a handler for receiving student ID to deletу
-def add_admin_id(admin_id):
-    # Read the existing ADMIN_IDS variable from the .env file
-    with open('.env', 'r') as env_file:
-        lines = env_file.readlines()
-
-    updated_lines = []
-    for line in lines:
-        if line.startswith('ADMIN_ID='):
-            # Extract the existing admin IDs
-            existing_ids = line.strip().split('=')[1]
-            existing_ids_list = [id.strip() for id in existing_ids.split(',')]
-
-            # Append the new admin ID (if it's not already present)
-            if admin_id not in existing_ids_list:
-                existing_ids_list.append(admin_id)
-
-            # Join the updated admin IDs and update the line
-            updated_ids = ', '.join(existing_ids_list)
-            updated_line = f'ADMIN_ID={updated_ids}\n'
-            updated_lines.append(updated_line)
-        else:
-            updated_lines.append(line)
-
-    # Write the updated lines back to the .env file
-    with open('.env', 'w') as env_file:
-        env_file.writelines(updated_lines)
-
-# Create a handler for receiving student ID to deletу
 @dp.message_handler(lambda message: message.text, state=MyState.waiting_for_admin_id)
 async def process_student_id(message: types.Message, state: FSMContext):
     try:
@@ -662,12 +709,70 @@ async def process_student_id(message: types.Message, state: FSMContext):
             await message.answer("Вы отменили добавление админа :(")
             await state.finish()
             return
-        student_id = int(message.text)
+        admin_id = int(message.text)
 
-        add_admin_id(str(student_id))
-        await message.answer(f"Пользователь с ID {student_id} успешно добавлен в админы.")
+        # Check if the student with the specified ID exists
+        cur.execute("SELECT tg_id FROM accounts WHERE tg_id=?", (admin_id,))
+        existing_admin = cur.fetchone()
+
+        if not existing_admin:
+            await message.answer("Пользователь с указанным ID не найден.")
+        else:
+            cur.execute("SELECT is_admin FROM accounts WHERE tg_id=?", (admin_id,))
+            existing_admin = int(cur.fetchone()[0])
+            if not existing_admin:
+                # Insert the student data into the database
+                cur.execute("UPDATE accounts SET is_admin=1 WHERE tg_id=?", (admin_id,))
+                db.db.commit()
+                await message.answer(f"Пользователь с ID {admin_id} успешно добавлен в базу данных.")
+            else:
+                await message.answer(f"Пользователь с ID {admin_id} уже является админом.")
     except ValueError:
-        await message.answer("Введите корректный ID студента.")
+        await message.answer("Введите корректный ID пользователя.")
+    except Exception as e:
+        await message.answer(f'Произошла ошибка: {str(e)}')
+
+    # Reset the state to none
+    await state.finish()
+
+#Удалить админа по ID
+@dp.message_handler(text=['Удалить админа'])
+async def delete_admin(message: types.Message):
+    if is_admin(message.from_user.id):
+        await message.answer("Введите ID пользователя, которого вы хотите удалить из админов.\nЕсли хотите отменить оперцию, введите 'stop'.")
+        # Set the state to wait for student ID
+        await MyState.waiting_for_admin_id_delete.set()
+    else:
+        await message.answer('У вас нет доступа к этой команде.')
+
+# Create a handler for receiving student ID to deletу
+@dp.message_handler(lambda message: message.text, state=MyState.waiting_for_admin_id_delete)
+async def process_student_id(message: types.Message, state: FSMContext):
+    try:
+        if message.text == 'stop':
+            await message.answer("Вы отменили удаление админа :(")
+            await state.finish()
+            return
+        admin_id = int(message.text)
+
+        # Check if the student with the specified ID exists
+        cur.execute("SELECT tg_id FROM accounts WHERE tg_id=?", (admin_id,))
+        existing_admin = cur.fetchone()
+
+        if not existing_admin:
+            await message.answer("Пользователь с указанным ID не найден.")
+        else:
+            cur.execute("SELECT is_admin FROM accounts WHERE tg_id=?", (admin_id,))
+            existing_admin = int(cur.fetchone()[0])
+            if existing_admin:
+                # Insert the student data into the database
+                cur.execute("UPDATE accounts SET is_admin=0 WHERE tg_id=?", (admin_id,))
+                db.db.commit()
+                await message.answer(f"Пользователь с ID {admin_id} успешно удален из админов.")
+            else:
+                await message.answer(f"Пользователь с ID {admin_id} не является админом.")
+    except ValueError:
+        await message.answer("Введите корректный ID пользователя.")
     except Exception as e:
         await message.answer(f'Произошла ошибка: {str(e)}')
 
