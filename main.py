@@ -155,8 +155,9 @@ async def show_all_courses(message: types.Message):
                 response += "{:<5} {:<15} {:<20} {:<20} {:<10}\n".format("ID", "tg_id", "Имя", "Курс", "Поток")
                 for student in students:
                     ID, tg_id, name, course_name, stream = student
+                    course_name = course_name if course_name is not None else "N/A"
+                    stream = stream if stream is not None else "N/A"
                     response += "{:<5} {:<15} {:<20} {:<20} {:<10}\n".format(ID, tg_id, name, course_name, stream)
-
                 await message.answer(response)
 
         except Exception as e:
