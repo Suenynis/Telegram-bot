@@ -822,7 +822,7 @@ async def callback_query_keyboard(call: types.CallbackQuery):
         stream_name = int(call.data.split('_')[2])
         await db.change_account_stream(call.from_user.id, stream_name)
         await bot.send_message(call.from_user.id,f'Вы выбрали поток {stream_name}')
-        await bot.send_message(call.from_user.id,'Oтлично, этот бот будет уведомлять вас о занятия.Пока вы можете ознокомится дополнительными материалами и узнать график занятияx', reply_markup=kb.anyn_list)
+        await bot.send_message(call.from_user.id,'Oтлично, этот бот будет уведомлять вас о занятия.\n\nПока вы можете ознокомится дополнительными материалами и узнать график занятияx', reply_markup=kb.anyn_list)
     elif call.data == 'назад_в_меню':
         courses = get_course_names()
         course_list = InlineKeyboardMarkup(row_width=1)
@@ -855,16 +855,22 @@ async def callback_query_keyboard(call: types.CallbackQuery):
                        stream.name = ?
                    """, (course_id, stream_id))
 
+
         schedule = cur.fetchall()
         cur.execute("SELECT name FROM course WHERE id = ?", (course_id,))
         course_name = cur.fetchone()[0]
         if not schedule:
             await bot.send_message(call.from_user.id,'Нет расписания для вашего курса и потока.')
         else:
+
             response = f'Ваше расписание по курсу:{course_name}\n'
             response += "{:<15} {:<20} {:<10}\n".format("Поток", "Дни", "Время")
             for entry in schedule:
                 stream_name, days, time = entry
+                if time.endswith(":0"):
+                    response += "{:<15} {:<20} {:<10}\n".format(stream_name, days, time+'0')
+                else:
+                    response += "{:<15} {:<20} {:<10}\n".format(stream_name, days, time+'0')
                 response += "{:<15} {:<20} {:<10}\n".format(stream_name, days, time)
 
             await bot.send_message(call.from_user.id , response)
