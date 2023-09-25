@@ -870,9 +870,7 @@ async def callback_query_keyboard(call: types.CallbackQuery):
                 if time.endswith(":0"):
                     response += "{:<15} {:<20} {:<10}\n".format(stream_name, days, time+'0')
                 else:
-                    response += "{:<15} {:<20} {:<10}\n".format(stream_name, days, time+'0')
-                response += "{:<15} {:<20} {:<10}\n".format(stream_name, days, time)
-
+                    response += "{:<15} {:<20} {:<10}\n".format(stream_name, days, time)
             await bot.send_message(call.from_user.id , response)
     elif call.data == 'Все курсы':
         if call.from_user.id == int(os.getenv('ADMIN_ID')):
