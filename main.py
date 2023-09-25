@@ -905,7 +905,6 @@ async def send_messages_to_accounts():
 
         # Calculate the time to send the message
         current_datetime = datetime.now(almaty_timezone)
-        print(current_datetime)
         current_day = current_datetime.weekday() # 0 = Monday, 6 = Sunday
         current_hour, current_minute = current_datetime.hour, current_datetime.minute
 
