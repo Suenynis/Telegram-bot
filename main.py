@@ -13,7 +13,7 @@ from app import database as db
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import datetime
 from app.database import cur
-
+import pytz
 # main.py - Main application
 
 import asyncio
@@ -58,6 +58,7 @@ day_mapping = {
 load_dotenv()
 bot = Bot(os.getenv('TOKEN'))
 dp = Dispatcher(bot=bot, storage=MemoryStorage())
+almaty_timezone = pytz.timezone('Asia/Almaty')
 
 def get_course_names():
     cur.execute("SELECT id, name FROM course")
@@ -903,7 +904,8 @@ async def send_messages_to_accounts():
 
 
         # Calculate the time to send the message
-        current_datetime = datetime.now()
+        current_datetime = datetime.now(almaty_timezone)
+        print(current_datetime)
         current_day = current_datetime.weekday() # 0 = Monday, 6 = Sunday
         current_hour, current_minute = current_datetime.hour, current_datetime.minute
 
@@ -923,7 +925,7 @@ async def send_messages_to_accounts():
         elif current_day in target_days and current_hour == target_hour and current_minute == target_minute and current_hour == target_hour and current_minute == target_minute:
             day_names = [day_name for day_name, day_value in day_mapping.items() if day_value in target_days]
             day_names_str = ", ".join(day_names)
-            message = f"It's time for your class on {day_names_str}: {stream_name}!"
+            message = f"Сегодня в {target_hour}:{target_minute} начнется ваше занятие по курсу {course_name[0]}!"
             # Send the message to each account
             for account_id in account_ids:
                 tg_id = account_id[0]
